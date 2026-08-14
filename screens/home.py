@@ -1,313 +1,151 @@
 # -*- coding: utf-8 -*-
-import pygame
 import math
-
-from enum import Enum, auto
-
+import pygame
 from screens.base import Screen
 from ui import theme
-from ui.widgets import (
-    draw_background,
-    draw_title,
-    draw_menu_list,
-    draw_footer_hint,
-    draw_panel,
-    draw_paragraph,
-)
+from ui.widgets import draw_background, draw_title, draw_menu_list
 
-
+# O menu agora unifica a lista superior e os itens do cubo!
+# Itens 0 a 3: Lista superior padrão
+# Itens 4 a 8: Interações dentro do cubo
 MENU_ITEMS = [
     ("Léptons e Quarks", "leptons_quarks"),
     ("Antimatéria", "antimatter"),
     ("Jogo dos Hádrons", "hadron_game"),
-    ("Forças", "forces"),
-    ("Spin", "spin"),
     ("Quiz", "quiz"),
+    ("Massa", "massa"),          
+    ("Carga", "carga"),           
+    ("Spin", "spin"),         
+    ("Tempo de vida", "vida"),   
+    ("Forças", "forces"),     
 ]
 
-
-class HomeState(Enum):
-    MENU = auto()
-    PARTICLE = auto()
-
-
 class HomeScreen(Screen):
-
     def on_enter(self):
         super().on_enter()
-
         self.selected = 0
-        self.state = HomeState.MENU
-        self.particle = None
-
-    # --------------------------------------------------------
-    # INPUT
-    # --------------------------------------------------------
 
     def handle_input(self, action):
-
-        # Enquanto mostra uma partícula
-        if self.state == HomeState.PARTICLE:
-
-            if action == "B":
-                self.state = HomeState.MENU
-                self.particle = None
-
-            return
-
-        # ---------- MENU ----------
-
         if action == "UP":
             self.selected = (self.selected - 1) % len(MENU_ITEMS)
-
         elif action == "DOWN":
             self.selected = (self.selected + 1) % len(MENU_ITEMS)
-
         elif action == "A":
-            self.next_screen = MENU_ITEMS[self.selected][1]
-
-    # --------------------------------------------------------
-    # RFID
-    # --------------------------------------------------------
+            target = MENU_ITEMS[self.selected][1]
+            if target:
+                self.next_screen = target
 
     def on_cube_placed(self, particle):
-        self.particle = particle
-        self.state = HomeState.PARTICLE
-
-    def on_cube_removed(self):
-        self.particle = None
-        self.state = HomeState.MENU
-
-    # --------------------------------------------------------
-    # DRAW
-    # --------------------------------------------------------
+        self.next_screen = "cube_reader"
 
     def draw(self, surface, t):
-
         draw_background(surface, self.starfield, t)
-
-        if self.state == HomeState.MENU:
-            self._draw_menu(surface,t)
-
-        else:
-            self._draw_particle(surface)
-    
-    # -------------------------------------------------------
-    # ANIMATION
-    # -------------------------------------------------------
-    
-    def _draw_rfid_hint(self, surface, t):
-
-        cx = self.width // 2
-        y = 210
-
-        # Movimento do cubo
-        offset = math.sin(t * 2.5) * 15
-
-        # ---------- Cubo ----------
-        cube = pygame.Rect(cx - 120 + offset, y , 40, 40)
-
-        pygame.draw.rect(surface, theme.GOLD, cube, border_radius=4)
-        pygame.draw.rect(surface, theme.WHITE, cube, 2, border_radius=4)
-
-        # ---------- Seta ----------
-        pygame.draw.line(
-            surface,
-            theme.CYAN,
-            (cx - 65, y + 20),
-            (cx - 15, y + 20),
-            3,
-        )
-
-        pygame.draw.polygon(
-            surface,
-            theme.CYAN,
-            [
-                (cx - 15, y + 20),
-                (cx - 25, y + 14),
-                (cx - 25, y + 26),
-            ]
-        )
-
-        # ---------- Leitor ----------
-        reader = pygame.Rect(cx, y - 10, 90, 60)
-
-        pygame.draw.rect(
-            surface,
-            theme.PANEL_BG,
-            reader,
-            border_radius=6,
-        )
-
-        pygame.draw.rect(
-            surface,
-            theme.PURPLE,
-            reader,
-            3,
-            border_radius=6,
-        )
-
-        # Luz piscando
-        if math.sin(t * 6) > 0:
-            led = theme.GREEN
-        else:
-            led = theme.RED
-
-        pygame.draw.circle(surface, led, (reader.centerx, reader.centery), 6)
-
-        # # Texto
-        # text = theme.font(14).render(
-        #     "ENCOSTE O CUBO",
-        #     True,
-        #     theme.CYAN,
-        # )
-
-        # surface.blit(
-        #     text,
-        #     text.get_rect(center=(cx, y + 75))
-        # )
         
-    # --------------------------------------------------------
-    # MENU
-    # --------------------------------------------------------
+        # --- ESPAÇAMENTOS CORRIGIDOS ---
+        title_y = int(self.height * 0.05)
+        ctrl_y = int(self.height * 0.15) 
+        menu_y = int(self.height * 0.19) 
+        item_h = int(self.height * 0.045) 
 
-    def _draw_menu(self, surface, t):
-
-        draw_title(
-            surface,
-            "PARTÍCULAS\nELEMENTARES",
-            self.width // 2,
-            110,
-            size=44,
-        )
+        # 1. TÍTULO ANIMADO
+        pulso = abs(math.sin(t * 3))
+        cor_titulo = (255, 255, int(100 + 155 * pulso))
         
-        self._draw_rfid_hint(surface, t)
+        f_titulo = theme.font(64)
+        linha1 = f_titulo.render("PARTÍCULAS", True, cor_titulo)
+        linha2 = f_titulo.render("ELEMENTARES", True, cor_titulo)
+        
+        surface.blit(linha1, linha1.get_rect(center=(self.width // 2, title_y)))
+        surface.blit(linha2, linha2.get_rect(center=(self.width // 2, title_y + 70)))
 
-        f_sub = theme.font(16)
+        # 2. CONTROLES DESENHADOS
+        f_ctrl = theme.font(26) 
+        
+        joy_txt = f_ctrl.render("Mover", True, theme.WHITE)
+        btn_a_txt = f_ctrl.render("Avançar", True, theme.WHITE)
+        btn_b_txt = f_ctrl.render("Voltar", True, theme.WHITE)
 
-        sub = f_sub.render(
-            "ENCOSTE UM CUBO NO LEITOR OU ESCOLHA UMA OPÇÃO",
-            True,
-            theme.CYAN,
-        )
+        center_x = self.width // 2
+        offset = int(self.width * 0.28)
 
-        surface.blit(
-            sub,
-            sub.get_rect(center=(self.width // 2, 280))
-        )
+        # JOYSTICK
+        joy_x = center_x - offset
+        pygame.draw.rect(surface, theme.WHITE, (joy_x - 40, ctrl_y, 10, 24))
+        pygame.draw.rect(surface, theme.WHITE, (joy_x - 47, ctrl_y + 7, 24, 10))
+        surface.blit(joy_txt, (joy_x - 15, ctrl_y - 2))
 
-        labels = [name for name, _ in MENU_ITEMS]
+        # BOTÃO VERDE (Avançar)
+        pygame.draw.circle(surface, (0, 220, 0), (center_x - 30, ctrl_y + 12), 16)
+        pygame.draw.circle(surface, theme.WHITE, (center_x - 30, ctrl_y + 12), 16, 2)
+        surface.blit(btn_a_txt, (center_x - 5, ctrl_y - 2))
 
-        draw_menu_list(
-            surface,
-            labels,
-            self.selected,
-            50,
-            340,
-            self.width - 100,
-            item_h=80,
-            size=24,
-        )
+        # BOTÃO VERMELHO (Voltar)
+        btn_b_x = center_x + offset
+        pygame.draw.circle(surface, (220, 0, 0), (btn_b_x - 30, ctrl_y + 12), 16)
+        pygame.draw.circle(surface, theme.WHITE, (btn_b_x - 30, ctrl_y + 12), 16, 2)
+        surface.blit(btn_b_txt, (btn_b_x - 5, ctrl_y - 2))
 
-        draw_footer_hint(
-            surface,
-            self.width,
-            self.height - 50,
-            "CIMA/BAIXO PARA NAVEGAR • APERTE PARA CONFIRMAR",
-        )
+        # 3. LISTA DE MENU (4 primeiros itens)
+        list_labels = [name for name, _ in MENU_ITEMS[:4]]
+        margin = int(self.width * 0.08) 
+        list_w = self.width - (margin * 2)
+        
+        list_selected = self.selected if self.selected < 4 else -1
+        draw_menu_list(surface, list_labels, list_selected, margin, menu_y, list_w, item_h=item_h, size=30)
 
-    # --------------------------------------------------------
-    # PARTÍCULA
-    # --------------------------------------------------------
+        # 4. O CUBO INTERATIVO
+        cube_y = menu_y + (4 * item_h) + int(self.height * 0.05)
+        cube_w = int(self.width * 0.8) 
+        cube_h = cube_w                
+        cube_x = center_x - (cube_w // 2)
 
-    def _draw_particle(self, surface):
+        # Bordas do Cubo 
+        pygame.draw.rect(surface, theme.WHITE, (cube_x, cube_y, cube_w, cube_h), 4)
+        pygame.draw.rect(surface, theme.WHITE, (cube_x + 12, cube_y + 12, cube_w - 24, cube_h - 24), 2)
 
-        p = self.particle
+        # Grande "X" centralizado no meio
+        f_x = theme.font(int(cube_w * 0.55))
+        img_x = f_x.render("X", True, theme.WHITE)
+        surface.blit(img_x, img_x.get_rect(center=(center_x, cube_y + cube_h // 2)))
 
-        draw_title(
-            surface,
-            "PARTÍCULA DETECTADA",
-            self.width // 2,
-            90,
-            size=34,
-        )
+        # "Nome" puxado mais para cima (18% da altura do cubo em relação à base) para ficar colado ao X
+        f_nome = theme.font(int(cube_w * 0.06))
+        img_nome = f_nome.render("Nome", True, theme.WHITE)
+        surface.blit(img_nome, img_nome.get_rect(midbottom=(center_x, cube_y + cube_h - int(cube_h * 0.18))))
 
-        panel = pygame.Rect(
-            40,
-            150,
-            self.width - 80,
-            self.height - 300,
-        )
+        # --- TEXTOS SELECIONÁVEIS DENTRO DO CUBO ---
+        def get_color(idx):
+            return theme.GOLD if self.selected == idx else theme.WHITE
+        
+        def get_text(idx, text):
+            return f"> {text}" if self.selected == idx else text
 
-        draw_panel(
-            surface,
-            panel,
-            border_color=p["color"],
-            width=5,
-        )
+        f_prop = theme.font(int(cube_w * 0.045)) 
+        
+        # 4.1 Canto Superior Esquerdo
+        lbl_massa = f_prop.render(get_text(4, "Massa"), True, get_color(4))
+        surface.blit(lbl_massa, (cube_x + 25, cube_y + 25))
 
-        name = theme.font(38).render(
-            p["name"],
-            True,
-            p["color"],
-        )
+        lbl_carga = f_prop.render(get_text(5, "Carga"), True, get_color(5))
+        surface.blit(lbl_carga, (cube_x + 25, cube_y + 25 + int(cube_h * 0.08)))
 
-        surface.blit(
-            name,
-            name.get_rect(center=(self.width // 2, panel.y + 60)),
-        )
+        lbl_spin = f_prop.render(get_text(6, "Spin"), True, get_color(6))
+        surface.blit(lbl_spin, (cube_x + 25, cube_y + 25 + int(cube_h * 0.16)))
 
-        kind = theme.font(20).render(
-            p["type"],
-            True,
-            theme.CYAN,
-        )
+        # 4.2 Canto Inferior Esquerdo
+        lbl_tempo = f_prop.render(get_text(7, "Tempo de vida"), True, get_color(7))
+        surface.blit(lbl_tempo, (cube_x + 15, cube_y + cube_h - 20 - lbl_tempo.get_height()))
 
-        surface.blit(
-            kind,
-            kind.get_rect(center=(self.width // 2, panel.y + 105)),
-        )
-
-        rows = [
-            ("Carga", p["charge"]),
-            ("Spin", p["spin"]),
-            ("Massa", p["mass"]),
-        ]
-
-        y = panel.y + 150
-
-        for label, value in rows:
-
-            l = theme.font(20).render(
-                f"{label}:",
-                True,
-                theme.GOLD,
-            )
-
-            v = theme.font(20).render(
-                value,
-                True,
-                theme.WHITE,
-            )
-
-            surface.blit(l, (panel.x + 30, y))
-            surface.blit(v, (panel.x + 220, y))
-
-            y += 36
-
-        draw_paragraph(
-            surface,
-            p["description"],
-            panel.x + 30,
-            y + 20,
-            panel.width - 60,
-            size=18,
-            line_gap=6,
-        )
-
-        draw_footer_hint(
-            surface,
-            self.width,
-            self.height - 50,
-            "RETIRE O CUBO OU MANTENHA PRESSIONADO",
-        )
+        # 4.3 Canto Superior Direito (FORÇAS)
+        forcas_text = "FORÇAS"
+        forcas_x = cube_x + cube_w - 45 
+        forcas_y = cube_y + 25
+        c_forcas = get_color(8)
+        
+        if self.selected == 8:
+            ind = f_prop.render(">", True, theme.GOLD)
+            surface.blit(ind, (forcas_x - 20, forcas_y))
+            
+        for i, letter in enumerate(forcas_text):
+            lbl_l = f_prop.render(letter, True, c_forcas)
+            surface.blit(lbl_l, lbl_l.get_rect(midtop=(forcas_x, forcas_y + i * int(cube_h * 0.065))))
